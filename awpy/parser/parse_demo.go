@@ -13,6 +13,7 @@ import (
 	dem "github.com/markus-wa/demoinfocs-golang/v2/pkg/demoinfocs"
 	common "github.com/markus-wa/demoinfocs-golang/v2/pkg/demoinfocs/common"
 	events "github.com/markus-wa/demoinfocs-golang/v2/pkg/demoinfocs/events"
+	"github.com/markus-wa/demoinfocs-golang/v2/pkg/demoinfocs/msg"
 )
 
 // Game is the overall struct that holds the parsed demo data
@@ -20,6 +21,7 @@ type Game struct {
 	MatchName      string          `json:"matchID"`
 	ClientName     string          `json:"clientName"`
 	Map            string          `json:"mapName"`
+	MapCRCCode     int64           `json:"mapCRCCode"`
 	TickRate       int64           `json:"tickRate"`
 	PlaybackTicks  int64           `json:"playbackTicks"`
 	PlaybackFrames int64           `json:"playbackFramesCount"`
@@ -34,12 +36,13 @@ type Game struct {
 
 // ParserOpts holds the parameters passed to the parser
 type ParserOpts struct {
-	ParseRate       int    `json:"parseRate"`
-	ParseFrames     bool   `json:"parseFrames"`
-	ParseKillFrames bool   `json:"parseKillFrames"`
-	TradeTime       int64  `json:"tradeTime"`
-	RoundBuyStyle   string `json:"roundBuyStyle"`
-	DamagesRolled   bool   `json:"damagesRolledUp"`
+	ParseRate         int    `json:"parseRate"`
+	ParseFrames       bool   `json:"parseFrames"`
+	ParsePlayerFrames bool `json:"parsePlayerFrames"`
+	ParseKillFrames   bool   `json:"parseKillFrames"`
+	TradeTime         int64  `json:"tradeTime"`
+	RoundBuyStyle     string `json:"roundBuyStyle"`
+	DamagesRolled     bool   `json:"damagesRolledUp"`
 }
 
 // MatchPhases holds lists of when match events occurred
@@ -928,6 +931,7 @@ func main() {
 	demoPathPtr := fl.String("demo", "", "Demo file `path`")
 	parseRatePtr := fl.Int("parserate", 128, "Parse rate, indicates spacing between ticks")
 	parseFramesPtr := fl.Bool("parseframes", false, "Parse frames")
+	parsePlayerFramesPtr := fl.Bool("parseplayerframes", false, "Parse player frames")
 	parseKillFramesPtr := fl.Bool("parsekillframes", false, "Parse kill frames")
 	tradeTimePtr := fl.Int("tradetime", 5, "Trade time frame (in seconds)")
 	roundBuyPtr := fl.String("buystyle", "hltv", "Round buy style")
@@ -942,6 +946,7 @@ func main() {
 	demPath := *demoPathPtr
 	parseRate := *parseRatePtr
 	parseFrames := *parseFramesPtr
+	parsePlayerFrames := *parsePlayerFramesPtr
 	parseKillFrames := *parseKillFramesPtr
 	tradeTime := int64(*tradeTimePtr)
 	roundBuyStyle := *roundBuyPtr
@@ -995,6 +1000,10 @@ func main() {
 	parsingOpts.TradeTime = tradeTime
 	parsingOpts.RoundBuyStyle = roundBuyStyle
 	parsingOpts.DamagesRolled = damagesRolled
+	parsingOpts.ParseFrames = parseFrames
+	parsingOpts.ParsePlayerFrames = parsePlayerFrames
+	parsingOpts.ParseKillFrames = parseKillFrames
+
 	currentGame.ParsingOpts = parsingOpts
 
 	currentRound := GameRound{}
@@ -1024,6 +1033,12 @@ func main() {
 	currentGame.MatchPhases.RoundFreezeEnded = []int64{}
 	currentGame.MatchPhases.RoundEnded = []int64{}
 	currentGame.MatchPhases.RoundEndedOfficial = []int64{}
+
+	// Parse map CRC
+	p.RegisterNetMessageHandler(func(info *msg.CSVCMsg_ServerInfo) {
+		crc_code := int64(info.MapCrc)
+		currentGame.MapCRCCode = crc_code
+	})
 
 	// Parse rank updates
 	p.RegisterEventHandler(func(e events.RankUpdate) {
@@ -1119,7 +1134,9 @@ func main() {
 	p.RegisterEventHandler(func(e events.SmokeStart) {
 		gs := p.GameState()
 		s := Smoke{}
-		s.GrenadeEntityID = e.Grenade.UniqueID() // GrenadeEntityID
+		if e.Grenade != nil {
+			s.GrenadeEntityID = e.Grenade.UniqueID() // GrenadeEntityID
+		}
 		s.StartTick = int64(gs.IngameTick())
 		s.X = float64(e.Position.X)
 		s.Y = float64(e.Position.Y)
@@ -1137,7 +1154,10 @@ func main() {
 	})
 
 	p.RegisterEventHandler(func(e events.SmokeExpired) {
-		removeID := e.Grenade.UniqueID() // e.GrenadeEntityID
+		removeID := int64(0)
+		if e.Grenade != nil {
+			removeID = e.Grenade.UniqueID() // e.GrenadeEntityID
+		}
 		for i, ele := range smokes {
 			if ele.GrenadeEntityID == removeID {
 				smokes = removeExpiredSmoke(smokes, i)
@@ -2488,6 +2508,12 @@ func main() {
 				currentFrame.BombPlanted = false
 			}
 
+			// Remove player frames if necessary
+			// if parsePlayerFrames == false {
+			// 	currentFrame.CT.Players = []PlayerInfo{}
+			// 	currentFrame.T.Players = []PlayerInfo{}
+			// }
+
 			// Add frame
 			if (len(currentFrame.CT.Players) > 0) || (len(currentFrame.T.Players) > 0) {
 				if (len(currentRound.Frames) > 0) {
@@ -2521,7 +2547,7 @@ func main() {
 	// Add the most recent round
 	currentGame.Rounds = append(currentGame.Rounds, currentRound)
 
-	// Clean rounds
+	// Clean rounds and write
 	if len(currentGame.Rounds) > 0 {
 		// Loop through damages and see if there are any multi-damages in a single tick, and reduce them to one attacker-victim-weapon entry per tick
 		if currentGame.ParsingOpts.DamagesRolled {

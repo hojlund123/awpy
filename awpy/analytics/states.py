@@ -1,3 +1,6 @@
+import warnings
+
+
 def generate_vector_state(frame, map_name):
     """Returns a game state in a dictionary format.
 
@@ -8,6 +11,9 @@ def generate_vector_state(frame, map_name):
     Returns:
         A dict with keys for each feature.
     """
+    if (not frame["ct"]["players"]) or (not frame["t"]["players"]):
+        warnings.warn("One of CT/T players is None! Values set to 0.", UserWarning)
+
     game_state = {}
     game_state["mapName"] = map_name
     game_state["secondsSincePhaseStart"] = frame["seconds"]
@@ -26,18 +32,19 @@ def generate_vector_state(frame, map_name):
     game_state["ctEqValStart"] = 0
     game_state["ctBombZone"] = 0
     game_state["defusers"] = 0
-    for p in frame["ct"]["players"]:
-        game_state["ctEqValStart"] += p["equipmentValueFreezetimeEnd"]
-        if p["isAlive"]:
-            game_state["ctAlive"] += 1
-            game_state["ctHp"] += p["hp"]
-            game_state["ctArmor"] += p["armor"]
-            game_state["ctHelmet"] += p["hasHelmet"]
-            game_state["ctEq"] += p["equipmentValue"]
-            game_state["ctUtility"] += p["totalUtility"]
-            game_state["defusers"] += p["hasDefuse"]
-            if p["isInBombZone"]:
-                game_state["ctBombZone"] += 1
+    if frame["ct"]["players"] is not None:
+        for p in frame["ct"]["players"]:
+            game_state["ctEqValStart"] += p["equipmentValueFreezetimeEnd"]
+            if p["isAlive"]:
+                game_state["ctAlive"] += 1
+                game_state["ctHp"] += p["hp"]
+                game_state["ctArmor"] += p["armor"]
+                game_state["ctHelmet"] += p["hasHelmet"]
+                game_state["ctEq"] += p["equipmentValue"]
+                game_state["ctUtility"] += p["totalUtility"]
+                game_state["defusers"] += p["hasDefuse"]
+                if p["isInBombZone"]:
+                    game_state["ctBombZone"] += 1
 
     # Team specific info (T)
     game_state["tAlive"] = 0
@@ -49,19 +56,20 @@ def generate_vector_state(frame, map_name):
     game_state["tEqValStart"] = 0
     game_state["tHoldingBomb"] = 0
     game_state["tBombZone"] = 0
-    for p in frame["t"]["players"]:
-        game_state["tEqValStart"] += p["equipmentValueFreezetimeEnd"]
-        if p["isAlive"]:
-            game_state["tAlive"] += 1
-            game_state["tHp"] += p["hp"]
-            game_state["tArmor"] += p["armor"]
-            game_state["tHelmet"] += p["hasHelmet"]
-            game_state["tEq"] += p["equipmentValue"]
-            game_state["tUtility"] += p["totalUtility"]
-            if p["isInBombZone"]:
-                game_state["tBombZone"] += 1
-            if p["hasBomb"]:
-                game_state["tHoldingBomb"] = 1
+    if frame["t"]["players"] is not None:
+        for p in frame["t"]["players"]:
+            game_state["tEqValStart"] += p["equipmentValueFreezetimeEnd"]
+            if p["isAlive"]:
+                game_state["tAlive"] += 1
+                game_state["tHp"] += p["hp"]
+                game_state["tArmor"] += p["armor"]
+                game_state["tHelmet"] += p["hasHelmet"]
+                game_state["tEq"] += p["equipmentValue"]
+                game_state["tUtility"] += p["totalUtility"]
+                if p["isInBombZone"]:
+                    game_state["tBombZone"] += 1
+                if p["hasBomb"]:
+                    game_state["tHoldingBomb"] = 1
 
     return game_state
 

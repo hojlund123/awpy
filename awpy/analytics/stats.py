@@ -1,12 +1,16 @@
 import pandas as pd
 
-# accuracy
-# kast
-# adr
-# kill stats
-# flash stats
-# econ stats
+
 def player_stats(game_rounds, return_type="json"):
+    """Generates a stats summary for a list of game rounds as produced by the DemoParser
+
+    Args:
+        game_rounds (list): List of game rounds as produced by the DemoParser
+        return_type (str, optional): Return format ("json" or "df"). Defaults to "json".
+
+    Returns:
+        dict: Dictionary containing player information
+    """
     player_statistics = {}
     for r in game_rounds:
         # Add players
@@ -65,6 +69,7 @@ def player_stats(game_rounds, return_type="json"):
                     "steamID": p["steamID"],
                     "playerName": p["playerName"],
                     "teamName": t_side["teamName"],
+                    "isBot": True if p["steamID"] == 0 else False,
                     "totalRounds": 0,
                     "kills": 0,
                     "deaths": 0,
@@ -139,14 +144,14 @@ def player_stats(game_rounds, return_type="json"):
                 kast[victim_key]["s"] = False
             if (
                 k["assisterSteamID"]
-                and k["assisterTeam"] != k["victimTeam"]
+                and k["assisterSide"] != k["victimSide"]
                 and assister_key in player_statistics.keys()
             ):
                 player_statistics[assister_key]["assists"] += 1
                 kast[assister_key]["a"] = True
             if (
                 k["flashThrowerSteamID"]
-                and k["flashThrowerTeam"] != k["victimTeam"]
+                and k["flashThrowerSide"] != k["victimSide"]
                 and flashthrower_key in player_statistics.keys()
             ):
                 player_statistics[flashthrower_key]["flashAssists"] += 1

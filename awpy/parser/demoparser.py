@@ -15,7 +15,8 @@ class DemoParser:
         demo_id (string): A unique demo name/game id. Default is inferred from demofile name
         log (boolean): A boolean indicating if the log should print to stdout.
         parse_rate (int): One of 128, 64, 32, 16, 8, 4, 2, or 1. The lower the value, the more frames are collected. Indicates spacing between parsed demo frames in ticks. Default is 128.
-        parse_frames (bool): Flag if you want to parse frames (trajectory data) or not
+        parse_frames (bool): Flag if you want to parse frames
+        # parse_player_frames (bool): Flag if you want to parse player frames (trajectories)
         parse_kill_frames (bool): Flag if you want to parse frames on kills
         trade_time (int): Length of the window for a trade (in seconds). Default is 5.
         dmg_rolled (bool): Boolean if you want damages rolled up (since multiple damages for a player can happen in 1 tick from the same weapon.)
@@ -33,6 +34,7 @@ class DemoParser:
         log=False,
         parse_rate=128,
         parse_frames=True,
+        # parse_player_frames=True,
         parse_kill_frames=False,
         trade_time=5,
         dmg_rolled=False,
@@ -113,10 +115,12 @@ class DemoParser:
 
         self.dmg_rolled = dmg_rolled
         self.parse_frames = parse_frames
+        # self.parse_player_frames = parse_player_frames
         self.parse_kill_frames = parse_kill_frames
         self.json_indentation = json_indentation
         self.logger.info("Rollup damages set to " + str(self.dmg_rolled))
         self.logger.info("Parse frames set to " + str(self.parse_frames))
+        # self.logger.info("Parse player frames set to " + str(self.parse_player_frames))
         self.logger.info("Parse kill frames set to " + str(self.parse_kill_frames))
         self.logger.info("Output json indentation set to " + str(self.json_indentation))
 
@@ -174,6 +178,8 @@ class DemoParser:
             self.parser_cmd.append("--dmgrolled")
         if self.parse_frames:
             self.parser_cmd.append("--parseframes")
+        # if self.parse_player_frames:
+        #     self.parser_cmd.append("--parseplayerframes")
         if self.parse_kill_frames:
             self.parser_cmd.append("--parsekillframes")
         if self.json_indentation:
